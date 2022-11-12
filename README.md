@@ -1,23 +1,13 @@
 # NAME
 
-    Type::Hints - Optional type hints and classes
+Type::Hints - Optional type hints and classes for Perl.
 
 ## SYNOPSIS
 
-```
-use Type::Hints;
+Screenshot includes the syntax highlighting found in the Perl Navigator
 
-class InventoryItem {
-    has name: str;
-    has unit_price: int;
-    private quantity_available: int = 0;
+![Example](https://raw.githubusercontent.com/bscan/Type-Hints/main/images/catfood.png)
 
-    def cost($self, $quantity: int = 1) : int {
-        let $cost: int = $self->unit_price * $quantity;
-        return $cost;
-    }
-}
-```
 
 ## DESCRIPTION
 
