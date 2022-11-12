@@ -2,11 +2,11 @@ package Type::Hints;
 use v5.20;
 use strict;
 #use warnings;
-use Keyword::Simple;
-use Carp qw(croak);
+use Keyword::Simple ();
+use Carp qw( croak );
 use feature ();
-use Text::Balanced qw(extract_bracketed);
-use Sentinel;
+use Text::Balanced  qw( extract_bracketed );
+use Sentinel ();
 
 our $VERSION = "0.01";
 
@@ -31,13 +31,13 @@ my $keywords = {
     'def'       => 1,
     'let'       => 1,
     'class'     => 1,
-    # 'interface' => 1,
     'has'       => 1,
     'public'    => 1,
     'private'   => 1,
     'protected' => 1,
     'readonly'  => 1,
     'initvar'   => 1,
+    'lazy'      => 1
 };
 
 # This will intentionally reference by partial name, so multiple Person class can collide
@@ -46,9 +46,7 @@ my $class_longname = {};
 
 my $defaults = {};
 my $lazy = {};
-
-# Interfaces do work, but probably add confusion. Between classes and inline object definitions, they may simply add confusion
-# my $interfaces = {};
+my $names = {};
 
 my $HINTS_RG = qr/(?:[:~] # Allow : or ~ to start the hint
                   ( \s*\{[\s\|\w:\[\],]+\} # First alternative is inline object hints like {foo: int, bar: str}
@@ -93,13 +91,6 @@ sub import {
         };
     }
 
-    # if($exported->{'interface'}){
-    #     my ($caller_pkg, $filename, $line) = caller();
-    #     Keyword::Simple::define 'interface', sub {
-    #         my $caller = $caller_pkg;
-    #         build_dataclass($caller, 'interface', @_);
-    #     };
-    # }
 
     if($exported->{'private'}){
         my ($has_pkg, undef) = caller();
@@ -279,41 +270,46 @@ sub replace_has_equals {
     } elsif($type eq 'protected'){
         $private = " Carp::croak('$param is a protected attribute') if !(\$self->isa((caller(0))[0]));";
     } elsif($type eq 'lazy'){
-        $lazy = " \$Type::Hints::lazy->{''.__PACKAGE__}->{$param} = 1; "
+        $lazy = " \$Type::Hints::lazy->{''.__PACKAGE__}->{'$param'} = 1; "
     }
-    $param = "_$param" if ($type eq 'private' or $type eq 'protected' or $type eq 'readonly');
-    my $readOnly =  ($type eq 'readonly' or $type eq 'lazy') ? " Carp::croak('$param is readonly');" : "";
+    
+    $param = "_-$param" if ($type eq 'private' or $type eq 'protected' or $type eq 'readonly');
+    
+    my $readOnly =  ($type eq 'readonly' or $type eq 'lazy') ? " Carp::croak('$oParam is readonly');" : "";
 
     my $assignment = "";
     if ($terminator eq '='){
         # Due to autovivification, the //= actually isn't needed. I keep it only to prevent "only used once errors on Type::Hints::defaults"
-        $assignment = "; \$Type::Hints::defaults->{''.__PACKAGE__} //= {}; $lazy \$Type::Hints::defaults->{''.__PACKAGE__}->{$param} = ";
+        $assignment = "; \$Type::Hints::defaults->{''.__PACKAGE__} //= {}; $lazy \$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'} = ";
     } elsif($lazy){
         croak("Cannot set type lazy without an assignment");
     }
 
 
-    # Carp::croak(''.__PACKAGE__.' is an interface. Use hash syntax to access members, or upgrade to a class') if \$Type::Hints::interfaces->{''.__PACKAGE__};
-
     my $lvalue = "
-        if(\$self and !\$self->isa('Type::Hints::Dataclass') and !exists(\$self->{\"$param\"}) and exists(\$Type::Hints::defaults->{''.__PACKAGE__}->{$param})) {
-            \$self->{\"$param\"} = \$Type::Hints::defaults->{''.__PACKAGE__}->{$param}
+        if(\$self and !\$self->isa('Type::Hints::Dataclass') and !exists(\$self->{\"$param\"}) and exists(\$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'})) {
+            \$self->{'$param'} = \$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'}
         }
         no warnings 'uninitialized';
         Sentinel::sentinel get => sub { 
                     $private
-                    return \$self->can('get_$oParam') && ((caller(1))[3] !~ /::get_$oParam\$/) ? \$self->get_$param : 
-                            ref(\$self->{'$param'}) eq 'CODE' ?  &{\$self->{$param}}(\$self) : \$self->{'$param'}
+                    return \$self->can('get_$oParam') && ((caller(1))[3] !~ /::get_$oParam\$/) ? \$self->get_$oParam : 
+                            ref(\$self->{'$param'}) eq 'CODE' ?  &{\$self->{'$param'}}(\$self) : \$self->{'$param'}
                     },
                  set => sub {
                     $private
                     $readOnly
-                    return \$self->can('set_$oParam') && ((caller(1))[3] !~ /::[sg]et_$oParam\$/) ? \$self->set_$param(\$_[0]) : (\$self->{'$param'} = \$_[0])
+                    return \$self->can('set_$oParam') && ((caller(1))[3] !~ /::[sg]et_$oParam\$/) ? \$self->set_$oParam(\$_[0]) : (\$self->{'$param'} = \$_[0])
                 };
     ";
-    my $pkg_code = "{ no strict 'refs'; \${__PACKAGE__ . '::_PARAMS'}{$param \}='$hint'\}" ;
+    my $pkg_code = " { no strict 'refs';
+                    die('$oParam already defined as an attribute') if defined(\$Type::Hints::names->{''.__PACKAGE__}->{'$oParam'});
+                    \$Type::Hints::names->{''.__PACKAGE__}->{'$oParam'} = '$param';
+                    \${__PACKAGE__ . '::_PARAMS'}{'$param'}='$hint';
+                    }" ;
 
     $lvalue =~ s/\n/ /g; # Ensure line numbers in errors stay the same
+    $pkg_code =~ s/\n/ /g;
     if ($type eq 'initvar'){
         return qq( $pkg_code $assignment );
     }
@@ -353,34 +349,38 @@ sub build_dataclass {
         my $if = bless {}, $pkg_name;
         
         resolve_ancestors($pkg_name);
-
-        foreach my $key (sort keys %{"${pkg_name}::_PARAMS"}){
-            if ( !defined($args{$key})){
-                if(exists($Type::Hints::defaults->{$pkg_name}->{$key})){
-                    $if->{$key} = $Type::Hints::defaults->{$pkg_name}->{$key};
+        my %ext_to_int = %{$Type::Hints::names->{$pkg_name}};
+        my %int_to_ext = reverse %{$Type::Hints::names->{$pkg_name}};
+        
+        foreach my $int_key (sort keys %{"${pkg_name}::_PARAMS"}){
+            if ( !defined($args{$int_to_ext{$int_key}})){
+                if(exists($Type::Hints::defaults->{$pkg_name}->{$int_key})){
+                    $if->{$int_key} = $Type::Hints::defaults->{$pkg_name}->{$int_key};
                 } 
             }
         }
 
-        foreach my $key (sort keys %args){
-            croak "$key is not a valid argument for class $short_name\n" if !defined(${"${pkg_name}::_PARAMS"}{$key});
-            if($if->can("set_$key")){
-                my $method = "set_$key";
-                $if->$method($args{$key});
+
+        foreach my $ext_key (sort keys %args){
+            croak "$ext_key is not a valid argument for class $short_name\n" if !defined(${"${pkg_name}::_PARAMS"}{$ext_to_int{$ext_key}});
+            if($if->can("set_$ext_key")){
+                my $method = "set_$ext_key";
+                $if->$method($args{$ext_key});
             } else {
-                $if->{$key} = $args{$key};
+                $if->{$ext_to_int{$ext_key}} = $args{$ext_key};
             }
         }
 
         $if->_init(\%args);
 
-        foreach my $key (sort keys %{"${pkg_name}::_PARAMS"}){
-            if ( !exists($if->{$key})){
-                 croak "$key is required parameter for class $short_name. Please pass a value, or set it in the constructor\n"
+        foreach my $int_key (sort keys %{"${pkg_name}::_PARAMS"}){
+            if ( !exists($if->{$int_key})){
+                 my $disp = $int_to_ext{$int_key};
+                 croak "$disp is required parameter for class $short_name. Please pass a value, or set it in the constructor\n"
             }
 
             # Force evaluation of default code blocks (unless lazy or replaced in the constructor)
-            $if->{$key} = &{$if->{$key}}($if) if ref($if->{$key}) eq 'CODE' and !defined($Type::Hints::lazy->{$pkg_name}->{$key});
+            $if->{$int_key} = &{$if->{$int_key}}($if) if ref($if->{$int_key}) eq 'CODE' and !defined($Type::Hints::lazy->{$pkg_name}->{$int_key});
         }
         return $if;
     };
@@ -407,10 +407,6 @@ sub build_dataclass {
         push @{"${pkg_name}::ISA"}, $parentPackage;
     }
 
-    # if($type eq 'interface'){
-    #     $Type::Hints::interfaces->{$pkg_name} = 1;
-    # }
-
     unshift @{ "${pkg_name}::ISA" }, 'Type::Hints::Dataclass';
 
     return;
@@ -427,7 +423,7 @@ sub resolve_ancestors {
         $pkg_name = $current;
         unshift @pks_to_check, $pkg_name;
     }
-    
+
     foreach my $ancestor (@pks_to_check){
         next unless ( $class_longname->{$ancestor} );
         foreach my $parentKey (keys %{"${ancestor}::_PARAMS"}){
@@ -435,6 +431,8 @@ sub resolve_ancestors {
                 #Check key doesn't exist since we want to be able to override default
                 ${"${pkg_name}::_PARAMS"}{$parentKey} = ${"${ancestor}::_PARAMS"}{$parentKey}; 
                 $Type::Hints::defaults->{$pkg_name}->{$parentKey} = $Type::Hints::defaults->{$ancestor}->{$parentKey};
+                $Type::Hints::names->{$pkg_name}->{$parentKey} = $Type::Hints::names->{$ancestor}->{$parentKey};
+                $Type::Hints::lazy->{$pkg_name}->{$parentKey} = $Type::Hints::names->{$ancestor}->{$parentKey};
             }
         };
         resolve_ancestors($ancestor, $pkg_name);

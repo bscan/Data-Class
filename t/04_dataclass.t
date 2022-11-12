@@ -1,8 +1,8 @@
 use strict;
 use warnings;
-use Test::More tests=>14;
+use Test::More tests=>16;
 use Data::Dumper;
-use Type::Hints qw(has class private lazy def);
+use Type::Hints;# qw(has class private lazy def readonly);
 use experimental 'signatures';
 
 class Foo {
@@ -12,6 +12,8 @@ class Foo {
     has quux : int = 5;
     has thud : str = "A thud";
     private privateVar = 2;
+    private privateInit;
+    readonly roInit;
 
     has zsubAttr = sub {
         my $self = shift;
@@ -32,9 +34,14 @@ class Foo {
     }
 }
 
-my $foo = Foo(bar=>2, baz=>Data::Dumper->new([], []), thud=>'Overridden');
+my $foo = Foo(bar=>2, baz=>Data::Dumper->new([], []), thud=>'Overridden', privateInit=>3, roInit=>4);
 
 is($foo->bar, 2, 'Simple assignment');
+
+is($foo->roInit, 4, 'Readonly init');
+
+eval { $foo->roInit = 3;  };
+like($@, qr(roInit is readonly), 'Readonly attributes');
 
 is(ref($foo->baz), "Data::Dumper", 'Class type hint');
 
@@ -62,5 +69,5 @@ like($@, qr(privateVar is a private attribute), 'Private attributes in dataclass
 
 is($foo->fetch_private, 2, 'Private allows internal access');
 
-is($foo->{"_privateVar"}, 2, 'Mangled named for private');
+is($foo->{"_-privateVar"}, 2, 'Mangled named for private');
 is($foo->{"privateVar"}, undef, 'Mangled named for private 2');
