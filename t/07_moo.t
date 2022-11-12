@@ -4,8 +4,7 @@ use Test::More tests=>5;
 
 package MooPack { 
     use Moo;
-    use strictures 2;
-    use namespace::clean;
+    use strict;
     use Type::Hints;
 
 
