@@ -460,6 +460,7 @@ sub __to_string {
     no warnings qw(uninitialized);
 
     my @elems;
+    my %int_to_ext = reverse %{$Type::Hints::names->{ref($self)}};
     foreach my $key (sort keys %$self) {
         my $display;
         my $val = $self->{$key};
@@ -472,7 +473,8 @@ sub __to_string {
         } or do {
             $display = ref($val);
         };
-        push @elems, "$key=>$display";
+        my $ext = $int_to_ext{$key};
+        push @elems, "$ext=>$display";
     }
     my $sOut = join ", ", @elems;
     my $sName = ref($self);

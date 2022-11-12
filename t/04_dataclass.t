@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests=>16;
+use Test::More tests=>17;
 use Data::Dumper;
 use Type::Hints;# qw(has class private lazy def readonly);
 use experimental 'signatures';
@@ -33,6 +33,13 @@ class Foo {
         return $self->privateVar;
     }
 }
+
+class Small {
+    has name = 'myName';
+    private secret = 'codeword'
+}
+
+my $smallObj = Small();
 
 my $foo = Foo(bar=>2, baz=>Data::Dumper->new([], []), thud=>'Overridden', privateInit=>3, roInit=>4);
 
@@ -71,3 +78,5 @@ is($foo->fetch_private, 2, 'Private allows internal access');
 
 is($foo->{"_-privateVar"}, 2, 'Mangled named for private');
 is($foo->{"privateVar"}, undef, 'Mangled named for private 2');
+
+is("$smallObj", "Small(secret=>'codeword', name=>'myName')", 'Data printer');
