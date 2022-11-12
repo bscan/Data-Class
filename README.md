@@ -4,20 +4,20 @@
 
 ## SYNOPSIS
 
-    ```
-    use Type::Hints;
+```
+use Type::Hints;
 
-    class InventoryItem {
-        has name: str;
-        has unit_price: int;
-        private quantity_available: int = 0;
+class InventoryItem {
+    has name: str;
+    has unit_price: int;
+    private quantity_available: int = 0;
 
-        def cost($self, $quantity: int = 1) : int {
-            let $cost: int = $self->unit_price * $quantity;
-            return $cost;
-        }
+    def cost($self, $quantity: int = 1) : int {
+        let $cost: int = $self->unit_price * $quantity;
+        return $cost;
     }
-    ```
+}
+```
 
 ## DESCRIPTION
 
