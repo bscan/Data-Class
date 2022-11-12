@@ -1,7 +1,9 @@
 use v5.20;
+use warnings;
 use Object::Pad;
 use Type::Hints qw(def);
 use Test::More tests => 2;
+no warnings qw(experimental::signatures);
 
 class Point {
 
