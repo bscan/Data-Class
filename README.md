@@ -21,7 +21,7 @@ as well.
 
 ### let
 
-```
+``` typescript
 let $age: int = 10;
 ```
 
@@ -29,7 +29,7 @@ Let is similar to "my", except allows for optional type hinting.
 
 ### def
 
-```
+``` 
 def multiply($first: num, $second: num = 1) : num {
     return $first * $second;
 }
@@ -53,7 +53,7 @@ package Airport {
 }
 
 my $airport = Airport->new(name=>'Nantucket');
-print $airport->name "is a regional airport" if($airport->regional);
+print $airport->name " is a regional airport" if($airport->regional);
 ```
 
 Has will define new attributes for use in classes. It accepts type
@@ -66,9 +66,9 @@ relevant args were passed.
 ### public
 public is a synonym for has
 
-```
+``` typescript
 class Airport {
-public name: str;
+    public name: str;
 }
 ```
 
@@ -76,9 +76,9 @@ public name: str;
 private restricts read and write access class in which a variable
 was created
 
-```
+``` typescript
 class Airport {
-private name: str;
+    private name: str;
 }
 ```
 
@@ -86,9 +86,9 @@ private name: str;
 protected restricts read and write access to the enclosing
 class and subclasses.
 
-```
+``` typescript
 class Airport {
-protected name: str;
+    protected name: str;
 }
 ```
 
@@ -96,9 +96,9 @@ protected name: str;
 readonly defines an object that can be read, but not written to.
 This also blocks writing to it from within the object itself
 
-```
+``` typescript
 class Airport {
-readonly name: str;
+    readonly name: str;
 }
 ```
 
@@ -111,7 +111,7 @@ and only want to build as needed.
 
 ```
 class Airport {
-lazy radar: sub { RadarTower->new() }; 
+    lazy radar: sub { RadarTower->new() }; 
 }
 ```
 
@@ -122,14 +122,14 @@ dataclasses InitVars.
 
 ```
 class Color {
-private color: str;
-initvar red: int;
-initvar green: int;
-initvar blue: int;
+    private color: str;
+    initvar red: int;
+    initvar green: int;
+    initvar blue: int;
 
-_init($self, Color){
-    $self->color = "RGB($args->{red},$args->{green}, $args->{blue})";
-}
+    _init($self, Color){
+        $self->color = "RGB($args->{red},$args->{green}, $args->{blue})";
+    }
 }
 ```
 
@@ -137,13 +137,13 @@ _init($self, Color){
 
 ```
 class Person {
-has name: str;
-has age: int;
-has alive: bool = 1;
+    has name: str;
+    has age: int;
+    has alive: bool = 1;
 
-def _init($self, $args){
-    die("Ages can't be negative") if $self->age < 0;
-}
+    def _init($self, $args){
+        die("Ages can't be negative") if $self->age < 0;
+    }
 }
 
 my $Bob = Person(name=>"Robert", age=>55);
@@ -222,17 +222,17 @@ and set respectively
 
 ```
 class Account {
-has balance = 0;
-sub get_balance($self) {
-    # Log access to the account for security reasons.
-    print "Accessing balance\n";
-    return $self->balance;
-}
-sub set_balance($self, $value) {
-    # More than just a type constraint, perhaps we want alert someone if overdraft attempted
-    croak("Overdraft fee applied!") if ($value < 0);
-    $self->balance = $value;
-}
+    has balance = 0;
+    sub get_balance($self) {
+        # Log access to the account for security reasons.
+        print "Accessing balance\n";
+        return $self->balance;
+    }
+    sub set_balance($self, $value) {
+        # More than just a type constraint, perhaps we want alert someone if overdraft attempted
+        croak("Overdraft fee applied!") if ($value < 0);
+        $self->balance = $value;
+    }
 }
 my $account = Account(balance=>100);
 $account->balance -= 10; # Calls a get and a set
@@ -244,24 +244,24 @@ refactoring your code to use getters and setters.
 
 The equivalent style in python is
 
-```
+``` python
 @property
 def balance(self):
-return self._balance
+    return self._balance
 
 @balance.setter
 def balance(self, value):
-self._balance = value
+    self._balance = value
 ```
 
 and the equivalent in typescript is:
 
-```
+``` typescript
 get balance(): number {
-return this._balance;
+    return this._balance;
 }
 set balance(value: number) {
-this._balance = value;
+    this._balance = value;
 }
 ```
 
