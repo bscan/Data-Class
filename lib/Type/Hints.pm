@@ -291,13 +291,12 @@ sub replace_has_equals {
             \$self->{'$param'} = \$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'}
         }
         no warnings 'uninitialized';
+        $private
         Sentinel::sentinel get => sub { 
-                    $private
                     return \$self->can('get_$oParam') && ((caller(1))[3] !~ /::get_$oParam\$/) ? \$self->get_$oParam : 
                             ref(\$self->{'$param'}) eq 'CODE' ?  &{\$self->{'$param'}}(\$self) : \$self->{'$param'}
                     },
                  set => sub {
-                    $private
                     $readOnly
                     return \$self->can('set_$oParam') && ((caller(1))[3] !~ /::[sg]et_$oParam\$/) ? \$self->set_$oParam(\$_[0]) : (\$self->{'$param'} = \$_[0])
                 };
