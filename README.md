@@ -53,7 +53,7 @@ package Airport {
 }
 
 my $airport = Airport->new(name=>'Nantucket');
-print $airport->name " is a regional airport" if($airport->regional);
+print $airport->name . " is a regional airport" if($airport->regional);
 ```
 
 Has will define new attributes for use in classes. It accepts type
@@ -111,7 +111,7 @@ and only want to build as needed.
 
 ```
 class Airport {
-    lazy radar: sub { RadarTower->new() }; 
+    lazy radar = sub { RadarTower->new() }; 
 }
 ```
 
@@ -127,7 +127,7 @@ class Color {
     initvar green: int;
     initvar blue: int;
 
-    _init($self, Color){
+    def _init($self, $args){
         $self->color = "RGB($args->{red},$args->{green}, $args->{blue})";
     }
 }
@@ -199,7 +199,7 @@ module needing this class.
 class Person {
     has name : str;
     has age  : int;
-    has surprise_party : Party::Plan | undef = undef;
+    has surprise_party : Party::Plan;
     def _init( $self, $args ) {
         die("Ages can't be negative")                if $self->age < 0;
         die("Nobody names their child empty string") if $self->name eq "";
