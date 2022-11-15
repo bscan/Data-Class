@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>6;
 
-use Type::Hints qw(let);
+use Data::Class qw(let);
 
 {
     let $foo : int = 2;

@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>16;
 use Data::Dumper;
-use Type::Hints qw(has class);
+use Data::Class qw(has class);
 use experimental 'signatures';
 
 package PackageParent {

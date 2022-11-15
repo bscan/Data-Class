@@ -5,7 +5,7 @@ use Test::More tests=>5;
 package MooPack { 
     use Moo;
     use strict;
-    use Type::Hints;
+    use Data::Class;
 
 
     has mooVar => (is=>'rw');

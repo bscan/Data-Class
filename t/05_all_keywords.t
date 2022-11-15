@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>1;
 use Data::Dumper;
-use Type::Hints;
+use Data::Class;
 use experimental 'signatures';
 
 class Foo {

@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>17;
 use Data::Dumper;
-use Type::Hints;# qw(has class private lazy def readonly);
+use Data::Class;# qw(has class private lazy def readonly);
 use experimental 'signatures';
 
 class Foo {

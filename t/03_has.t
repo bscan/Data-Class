@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>16;
 use Data::Dumper;
-use Type::Hints;
+use Data::Class;
 
 package FooParent {
     private priv_attr;

@@ -1,6 +1,6 @@
 # NAME
 
-Type::Hints - Optional type hints and classes for Perl.
+Data::Class - Data classes and type hints for Perl.
 
 ## SYNOPSIS
 
@@ -11,11 +11,9 @@ Screenshot includes the syntax highlighting found in the Perl Navigator
 
 ## DESCRIPTION
 
-Type::Hints provides a variety of keywords that offer type annotations
+Data::Class provides a variety of keywords that offer classes similar to dataclasses in Python, and type hints
 similar to those offered in Python and Typescript. Syntax highlighting
-for these keywords is available in the Perl Navigator. A full object
-oriented framework written around keywords and type hints is provided
-as well.
+for these keywords is available in the Perl Navigator.
 
 # KEYWORDS
 
@@ -266,9 +264,9 @@ set balance(value: number) {
 ```
 
 Inheritance Single inheritance is supported. You can either subclass from
-Type::hints style classes, or from normal packages. Because you can
+Data::Class classes, or from normal packages. Because you can
 inherit from packages that themselves may use multiple inheritance from
-Type::Hints classes, you may effectively end up with multiple inheritance
+Data::Class classes, you may effectively end up with multiple inheritance
 on classes. This feature does work, but is experimental.
 
 ```
@@ -294,12 +292,12 @@ let $bar: {arg1 : str, arg2: int, myInts: arrayref[Math::BigInt | int] };
 ```
 
 All primitive hints are always available and do not need to be imported
-from Type::Hints. However, you can explicitly import hints if you want
+from Data::Class. However, you can explicitly import hints if you want
 to satisfy Perl::Critic or generally prefer the readability.
 
 ### What about attributes?
 
-Many people will notice that Type::Hints uses the :int syntax otherwise
+Many people will notice that Data::Class uses the :int syntax otherwise
 used for variable attributes. Subroutine attributes are not impacted by
 this notation as they occur prior to signature.
 
@@ -318,14 +316,14 @@ signatures. Enabling signatures will prevent the use of prototypes.
 An alternate syntax I have explored is the use of ~ instead of :. This
 is seen in statistics when definining the distribution of a variable
 such as Height ~ N(μ, σ). The tilde is also used in linguistics to
-represent alternating allomorphs. Type::Hints do not specify that a
+represent alternating allomorphs. Data::Class do not specify that a
 variable will exactly match a type, but simply be allomorphic to that
 type (i.e. implement the same features). Perl currently uses the tilde
-in boolean logic, but Type::Hints also repurposes the symbol | from
+in boolean logic, but Data::Class also repurposes the symbol | from
 boolean logic so will never be allowed where boolean logic could be
 applied.
 
-If you prefer, Type::Hints currently supports ~ as an alernative syntax
+If you prefer, Data::Class currently supports ~ as an alernative syntax
 for hints, and it may be used interchangeably with the colon syntax.
 
 ```
@@ -343,11 +341,11 @@ class InventoryItem {
 
 ### Runtime impact
 
-Type::Hints does not validate data types or have any runtime impact on
+Data::Class does not validate data types or have any runtime impact on
 your application. This is consistent with the Type annotation
 behaviours of both Python and Typescript.
 
-This makes Type::Hints safe as a method for gradually modernizing and
+This makes Data::Class safe as a method for gradually modernizing and
 documenting the code of legacy applications. As it has no runtime
 impact, it is unlikely to throw any runtime errors if the script itself
 can compile. classes (much like regular objects) also allow for hash
@@ -358,7 +356,7 @@ more explicity use of default values. These aspects are what make the
 classes reminiscent of Typescript interfaces.
 
 ## Moo/Moose compatibility
-Type::Hints are fully compatible with Moo/Moose/Mo/Mouse and similar object frameworks. For attributes, you can
+Data::Class is fully compatible with Moo/Moose/Mo/Mouse and similar object frameworks. For attributes, you can
 use public, private, and readonly and they work including defaults,
 lvalues, and access control. However, these attributes are not allowed in
 Moo/Moose constructors so you will need another method of assigning values

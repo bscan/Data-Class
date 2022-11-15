@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>7;
 
-use Type::Hints qw(def);
+use Data::Class qw(def);
 
 def add( $foo : int, $bar : arrayref [ int | str ] ) : int {
     return $foo + $bar->[0] + $bar->[1];

@@ -3,7 +3,7 @@ use Test::More tests => 1;
 is(1+1,2,'Ignoring object::pad for now');
 # use warnings;
 # use Object::Pad;
-# use Type::Hints qw(def);
+# use Data::Class qw(def);
 # use Test::More tests => 2;
 # no warnings qw(experimental::signatures);
 

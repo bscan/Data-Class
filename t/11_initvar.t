@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>5;
 use Data::Dumper;
-use Type::Hints qw(has class initvar);
+use Data::Class qw(has class initvar);
 use experimental 'signatures';
 
 class Color {

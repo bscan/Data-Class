@@ -1,4 +1,4 @@
-package Type::Hints;
+package Data::Class;
 use v5.20;
 use strict;
 #use warnings;
@@ -29,6 +29,8 @@ my $containers = {
 
 my $keywords = {
     'def'       => 1,
+    'get'       => 1,
+    'set'       => 1,
     'let'       => 1,
     'class'     => 1,
     'has'       => 1,
@@ -73,10 +75,21 @@ sub import {
         $exported->{$request} = 1;
     }
 
-    if($exported->{'def'}) {
+    if($exported->{'def'} or $exported->{'get'} or $exported->{'set'}) {
         feature->import('signatures'); # subroutine signatures
         warnings->unimport('experimental::signatures');
-        Keyword::Simple::define 'def', \&build_def;
+    }
+
+    if($exported->{'def'}) {
+        Keyword::Simple::define 'def', sub { build_def('def', @_) };
+    }
+
+    if($exported->{'get'}) {
+        Keyword::Simple::define 'get', sub { build_def('get', @_) };
+    }
+
+    if($exported->{'set'}) {
+        Keyword::Simple::define 'set', sub { build_def('set', @_)};
     }
 
     if($exported->{'let'}){
@@ -86,8 +99,7 @@ sub import {
     if($exported->{'class'}){
         my ($caller_pkg, $filename, $line) = caller();
         Keyword::Simple::define 'class', sub {
-            my $caller = $caller_pkg;
-            build_dataclass($caller, 'class', @_);
+            build_dataclass($caller_pkg, 'class', @_);
         };
     }
 
@@ -95,32 +107,28 @@ sub import {
     if($exported->{'private'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'private', sub {
-            my $has = $has_pkg;
-            build_has($has, 'private', @_);
+            build_has($has_pkg, 'private', @_);
         };
     }
 
     if($exported->{'protected'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'protected', sub {
-            my $has = $has_pkg;
-            build_has($has, 'protected', @_);
+            build_has($has_pkg, 'protected', @_);
         };
     }
 
     if($exported->{'public'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'public', sub {
-            my $has = $has_pkg;
-            build_has($has, 'public', @_);
+            build_has($has_pkg, 'public', @_);
         };
     }
 
     if($exported->{'readonly'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'readonly', sub {
-            my $has = $has_pkg;
-            build_has($has, 'readonly', @_);
+            build_has($has_pkg, 'readonly', @_);
         };
     }
 
@@ -130,8 +138,7 @@ sub import {
         my $hasPath = "${has_pkg}::has";
         if( !exists &{$hasPath}) {
             Keyword::Simple::define 'has', sub {
-                my $has = $has_pkg;
-                build_has($has, 'has', @_);
+                build_has($has_pkg, 'has', @_);
             };
         }
     }
@@ -139,24 +146,32 @@ sub import {
     if($exported->{'initvar'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'initvar', sub {
-            my $has = $has_pkg;
-            build_has($has, 'initvar', @_);
+            build_has($has_pkg, 'initvar', @_);
         };
     }
 
     if($exported->{'lazy'}){
         my ($has_pkg, undef) = caller();
         Keyword::Simple::define 'lazy', sub {
-            my $has = $has_pkg;
-            build_has($has, 'lazy', @_);
+            build_has($has_pkg, 'lazy', @_);
         };
     }
 }
  
 sub build_def {
-    my ($ref) = @_;
+    my ($type, $ref) = @_;
     my $line_count = $$ref =~ tr/\n//;
-    $$ref =~ s/^(\s*\w+\b\s*\()([^\)]*)(\))\s*(?:$HINTS_RG)?/'sub '.$1.parse_def_hints($2).$3.validate_hint($4)/e;
+
+    if ($type =~ /^[gs]et$/ ){
+         if($$ref !~ s/^(\s*)(\w+\b\s*\()/${1}__${type}__$2$3/){
+            croak("Malformed syntax for $type. Did you forget the signature?");
+         };
+    }
+
+
+    if($$ref !~ s/^(\s*\w+\b\s*\()([^\)]*)(\))\s*(?:$HINTS_RG)?/'sub '.$1.parse_def_hints($2).$3.validate_hint($4)/e){
+        croak("Unrecognized syntax for $type. Did you forget the signature?");
+    };
     my $new_count = $$ref =~ tr/\n//;
     my $missing = $line_count - $new_count;
     substr($$ref, 0, 0) = "\n" x $missing;
@@ -251,9 +266,7 @@ sub unimport {
 sub build_has {
     my ($has_pkg, $type, $ref) = @_;
 
-    if($$ref =~ s/^\s*(\w+)\s*(?:$HINTS_RG)?\s*(;|=)/replace_has_equals($1, $2, $3, $type)/e){
-        #print $$ref
-    } else {
+    if($$ref !~ s/^\s*(\w+)\s*(?:$HINTS_RG)?\s*(;|=)/replace_has_equals($1, $2, $3, $type)/e){
         croak "Invalid syntax for has keyword";
     }
 }
@@ -270,7 +283,7 @@ sub replace_has_equals {
     } elsif($type eq 'protected'){
         $private = " Carp::croak('$param is a protected attribute') if !(\$self->isa((caller(0))[0]));";
     } elsif($type eq 'lazy'){
-        $lazy = " \$Type::Hints::lazy->{''.__PACKAGE__}->{'$param'} = 1; "
+        $lazy = " \$Data::Class::lazy->{''.__PACKAGE__}->{'$param'} = 1; "
     }
     
     $param = "_-$param" if ($type eq 'private' or $type eq 'protected' or $type eq 'readonly');
@@ -279,31 +292,31 @@ sub replace_has_equals {
 
     my $assignment = "";
     if ($terminator eq '='){
-        # Due to autovivification, the //= actually isn't needed. I keep it only to prevent "only used once errors on Type::Hints::defaults"
-        $assignment = "; \$Type::Hints::defaults->{''.__PACKAGE__} //= {}; $lazy \$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'} = ";
+        # Due to autovivification, the //= actually isn't needed. I keep it only to prevent "only used once errors on Data::Class::defaults"
+        $assignment = "; \$Data::Class::defaults->{''.__PACKAGE__} //= {}; $lazy \$Data::Class::defaults->{''.__PACKAGE__}->{'$param'} = ";
     } elsif($lazy){
         croak("Cannot set type lazy without an assignment");
     }
 
 
     my $lvalue = "
-        if(\$self and !\$self->isa('Type::Hints::Dataclass') and !exists(\$self->{\"$param\"}) and exists(\$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'})) {
-            \$self->{'$param'} = \$Type::Hints::defaults->{''.__PACKAGE__}->{'$param'}
+        if(\$self and !\$self->isa('Data::Class::Dataclass') and !exists(\$self->{\"$param\"}) and exists(\$Data::Class::defaults->{''.__PACKAGE__}->{'$param'})) {
+            \$self->{'$param'} = \$Data::Class::defaults->{''.__PACKAGE__}->{'$param'}
         }
         no warnings 'uninitialized';
         $private
         Sentinel::sentinel get => sub { 
-                    return \$self->can('get_$oParam') && ((caller(1))[3] !~ /::get_$oParam\$/) ? \$self->get_$oParam : 
+                    return \$self->can('__get__$oParam') && ((caller(1))[3] !~ /::__get__$oParam\$/) ? \$self->__get__$oParam : 
                             ref(\$self->{'$param'}) eq 'CODE' ?  &{\$self->{'$param'}}(\$self) : \$self->{'$param'}
                     },
                  set => sub {
                     $readOnly
-                    return \$self->can('set_$oParam') && ((caller(1))[3] !~ /::[sg]et_$oParam\$/) ? \$self->set_$oParam(\$_[0]) : (\$self->{'$param'} = \$_[0])
+                    return \$self->can('__set__$oParam') && ((caller(1))[3] !~ /::__[sg]et__$oParam\$/) ? \$self->__set__$oParam(\$_[0]) : (\$self->{'$param'} = \$_[0])
                 };
     ";
     my $pkg_code = " { no strict 'refs';
-                    die('$oParam already defined as an attribute') if defined(\$Type::Hints::names->{''.__PACKAGE__}->{'$oParam'});
-                    \$Type::Hints::names->{''.__PACKAGE__}->{'$oParam'} = '$param';
+                    die('$oParam already defined as an attribute') if defined(\$Data::Class::names->{''.__PACKAGE__}->{'$oParam'});
+                    \$Data::Class::names->{''.__PACKAGE__}->{'$oParam'} = '$param';
                     \${__PACKAGE__ . '::_PARAMS'}{'$param'}='$hint';
                     }" ;
 
@@ -348,13 +361,13 @@ sub build_dataclass {
         my $if = bless {}, $pkg_name;
         
         resolve_ancestors($pkg_name);
-        my %ext_to_int = %{$Type::Hints::names->{$pkg_name}};
-        my %int_to_ext = reverse %{$Type::Hints::names->{$pkg_name}};
+        my %ext_to_int = %{$Data::Class::names->{$pkg_name}};
+        my %int_to_ext = reverse %{$Data::Class::names->{$pkg_name}};
         
         foreach my $int_key (sort keys %{"${pkg_name}::_PARAMS"}){
             if ( !defined($args{$int_to_ext{$int_key}})){
-                if(exists($Type::Hints::defaults->{$pkg_name}->{$int_key})){
-                    $if->{$int_key} = $Type::Hints::defaults->{$pkg_name}->{$int_key};
+                if(exists($Data::Class::defaults->{$pkg_name}->{$int_key})){
+                    $if->{$int_key} = $Data::Class::defaults->{$pkg_name}->{$int_key};
                 } 
             }
         }
@@ -362,8 +375,8 @@ sub build_dataclass {
 
         foreach my $ext_key (sort keys %args){
             croak "$ext_key is not a valid argument for class $short_name\n" if !defined(${"${pkg_name}::_PARAMS"}{$ext_to_int{$ext_key}});
-            if($if->can("set_$ext_key")){
-                my $method = "set_$ext_key";
+            if($if->can("__set__$ext_key")){
+                my $method = "__set__$ext_key";
                 $if->$method($args{$ext_key});
             } else {
                 $if->{$ext_to_int{$ext_key}} = $args{$ext_key};
@@ -379,7 +392,7 @@ sub build_dataclass {
             }
 
             # Force evaluation of default code blocks (unless lazy or replaced in the constructor)
-            $if->{$int_key} = &{$if->{$int_key}}($if) if ref($if->{$int_key}) eq 'CODE' and !defined($Type::Hints::lazy->{$pkg_name}->{$int_key});
+            $if->{$int_key} = &{$if->{$int_key}}($if) if ref($if->{$int_key}) eq 'CODE' and !defined($Data::Class::lazy->{$pkg_name}->{$int_key});
         }
         return $if;
     };
@@ -395,7 +408,7 @@ sub build_dataclass {
 
         if ( exists &{$sFullPath}) {
             $parentPackage = Sub::Util::subname(\&$sFullPath);
-            croak(" $sFullPath is a regular subroutine, not a Type::Hints::class") if $parentPackage !~ /^$prefix/;
+            croak(" $sFullPath is a regular subroutine, not a Data::Class::class") if $parentPackage !~ /^$prefix/;
             $parentPackage =~ s/^$prefix//;
             $class_longname->{$parentPackage} = 1;
         } elsif (pack_exists($parent)) {
@@ -406,7 +419,7 @@ sub build_dataclass {
         push @{"${pkg_name}::ISA"}, $parentPackage;
     }
 
-    unshift @{ "${pkg_name}::ISA" }, 'Type::Hints::Dataclass';
+    unshift @{ "${pkg_name}::ISA" }, 'Data::Class::Dataclass';
 
     return;
 }
@@ -429,9 +442,9 @@ sub resolve_ancestors {
             if(!exists ${"${pkg_name}::_PARAMS"}{$parentKey} ){
                 #Check key doesn't exist since we want to be able to override default
                 ${"${pkg_name}::_PARAMS"}{$parentKey} = ${"${ancestor}::_PARAMS"}{$parentKey}; 
-                $Type::Hints::defaults->{$pkg_name}->{$parentKey} = $Type::Hints::defaults->{$ancestor}->{$parentKey};
-                $Type::Hints::names->{$pkg_name}->{$parentKey} = $Type::Hints::names->{$ancestor}->{$parentKey};
-                $Type::Hints::lazy->{$pkg_name}->{$parentKey} = $Type::Hints::names->{$ancestor}->{$parentKey};
+                $Data::Class::defaults->{$pkg_name}->{$parentKey} = $Data::Class::defaults->{$ancestor}->{$parentKey};
+                $Data::Class::names->{$pkg_name}->{$parentKey} = $Data::Class::names->{$ancestor}->{$parentKey};
+                $Data::Class::lazy->{$pkg_name}->{$parentKey} = $Data::Class::names->{$ancestor}->{$parentKey};
             }
         };
         resolve_ancestors($ancestor, $pkg_name);
@@ -450,7 +463,7 @@ sub pack_exists {
     }
 }
 
-package Type::Hints::Dataclass;
+package Data::Class::Dataclass;
 use Scalar::Util qw(looks_like_number);
 use overload '""' => \&__to_string;
 
@@ -459,7 +472,7 @@ sub __to_string {
     no warnings qw(uninitialized);
 
     my @elems;
-    my %int_to_ext = reverse %{$Type::Hints::names->{ref($self)}};
+    my %int_to_ext = reverse %{$Data::Class::names->{ref($self)}};
     foreach my $key (sort keys %$self) {
         my $display;
         my $val = $self->{$key};
@@ -490,11 +503,11 @@ sub _init {
 
 =head1 NAME
 
-Type::Hints - Optional type hints and classes
+Data::Class - Dataclass and type hints
 
 =head1 SYNOPSIS
 
-    use Type::Hints;
+    use Data::Class;
 
     class InventoryItem {
         has name: str;
@@ -509,7 +522,7 @@ Type::Hints - Optional type hints and classes
 
 =head1 DESCRIPTION
 
-Type::Hints provides a variety of keywords that offer type annotations similar to those offered in Python and Typescript.
+Data::Class provides a variety of keywords that offer type annotations similar to those offered in Python and Typescript.
 Syntax highlighting for these keywords is available in the Perl Navigator
 A full object oriented framework written around keywords and type hints is provided as well.
 
@@ -545,7 +558,7 @@ Let is similar to "sub", except allows for optional type hinting. Importing "def
     }
 
     my $airport = Airport->new(name=>'Nantucket');
-    print $airport->name "is a regional airport" if($airport->regional);
+    print $airport->name . " is a regional airport" if($airport->regional);
 
 Has will define new attributes for use in classes. It accepts type hints and specifies default arguments. An accessor and an l-value setter will be generated for each attribute.
 "has" is best with classes, but works with normal packages as well. If you build your own object system, you'll need to deal with ->new() and ensuring the relevant args were passed.
@@ -584,7 +597,7 @@ lazy is relevant when the default is a sub{}. Lazy attributes are initialized on
 If you not using class (e.g. using 'has' in a regular package), then all attributes are lazy due to the lack of constructor.
 
     class Airport {
-        lazy radar: sub { RadarTower->new() }; # Expensive object to build. Only build if needed.
+        lazy radar = sub { RadarTower->new() }; # Expensive object to build. Only build if needed.
     }
 
 =head3 initvar
@@ -645,7 +658,7 @@ As a subroutine, the constructor may be exported to any module needing this clas
     class Person {
         has name : str;
         has age  : int;
-        has surprise_party : Party::Plan | undef = undef;
+        has surprise_party : Party::Plan;
         def _init( $self, $args ) {
             die("Ages can't be negative")                if $self->age < 0;
             die("Nobody names their child empty string") if $self->name eq "";
@@ -658,16 +671,16 @@ _init is passed $args, but this is rarely necessary to consult unless you need t
 
 =head3 Getters and Setters
 
-If you need data validation on the lvalue getters and setters, you may add a get_foo or set_foo, which will be called automatically on the get and set respectively
+If you need data validation on the lvalue getters and setters, you may add a get foo() or set foo(), which will be called automatically on the get and set respectively
 
     class Account {
         has balance = 0;
-        sub get_balance($self) {
+        get balance($self) {
             # Log access to the account for security reasons.
             print "Accessing balance\n";
             return $self->balance;
         }
-        sub set_balance($self, $value) {
+        set balance($self, $value) {
             # More than just a type constraint, perhaps we want alert someone if overdraft attempted
             croak("Overdraft fee applied!") if ($value < 0);
             $self->balance = $value;
@@ -697,8 +710,8 @@ and the equivalent in typescript is:
     }
 
 =head3 Inheritance
-Single inheritance is supported. You can either subclass from Type::hints style classes, or from normal packages.
-Because you can inherit from packages that themselves may use multiple inheritance from Type::Hints classes, you may effectively end up with multiple inheritance on classes. This feature does work, but is experimental.
+Single inheritance is supported. You can either subclass from Data::Class style classes, or from normal packages.
+Because you can inherit from packages that themselves may use multiple inheritance from Data::Class classes, you may effectively end up with multiple inheritance on classes. This feature does work, but is experimental.
 
     class Animal {
     }
@@ -717,12 +730,12 @@ The type hints are composable using the or operator | and using various hints as
     let $foo: arrayref[ int | object | arrayref[str]] | undef; 
     let $bar: {arg1 : str, arg2: int, myInts: arrayref[Math::BigInt | int] };
 
-All primitive hints are always available and do not need to be imported from Type::Hints. However, you can explicitly import hints if you want to satisfy Perl::Critic or generally prefer the readability.
+All primitive hints are always available and do not need to be imported from Data::Class. However, you can explicitly import hints if you want to satisfy Perl::Critic or generally prefer the readability.
 
 
 =head2 What about attributes?
 
-Many people will notice that Type::Hints uses the :int syntax otherwise used for variable attributes. 
+Many people will notice that Data::Class uses the :int syntax otherwise used for variable attributes. 
 Subroutine attributes are not impacted by this notation as they occur prior to signature. 
 
 In my experience, variable attributes are rare and often unnecessary. There is only a single built-in variable attribute "shared" that is for use with threads. 
@@ -732,10 +745,10 @@ Perl::Critic and Perl::Tidy also work very well using this notation as they were
 There is precedent for repurposing less used notation with subroutine signatures. Enabling signatures will prevent the use of prototypes.
 
 An alternate syntax I have explored is the use of ~ instead of :. This is seen in statistics when definining the distribution of a variable such as Height ~ N(μ, σ).
-The tilde is also used in linguistics to represent alternating allomorphs. Type::Hints do not specify that a variable will exactly match a type, but simply be allomorphic to that type (i.e. implement the same features). 
-Perl currently uses the tilde in boolean logic, but Type::Hints also repurposes the symbol | from boolean logic so will never be allowed where boolean logic could be applied.
+The tilde is also used in linguistics to represent alternating allomorphs. Data::Class do not specify that a variable will exactly match a type, but simply be allomorphic to that type (i.e. implement the same features). 
+Perl currently uses the tilde in boolean logic, but Data::Class also repurposes the symbol | from boolean logic so will never be allowed where boolean logic could be applied.
 
-If you prefer, Type::Hints currently supports ~ as an alernative syntax for hints, and it may be used interchangeably with the colon syntax.
+If you prefer, Data::Class currently supports ~ as an alernative syntax for hints, and it may be used interchangeably with the colon syntax.
 
     class InventoryItem {
         has name       ~ str;
@@ -750,14 +763,14 @@ If you prefer, Type::Hints currently supports ~ as an alernative syntax for hint
 
 =head2 Runtime impact
 
-Type::Hints does not validate data types or have any runtime impact on your application. This is consistent with the Type annotation behaviours of both Python and Typescript. 
+Data::Class does not validate data types or have any runtime impact on your application. This is consistent with the Type annotation behaviours of both Python and Typescript. 
 
-This makes Type::Hints safe as a method for gradually modernizing and documenting the code of legacy applications. As it has no runtime impact, it is unlikely to throw any runtime errors if the script itself can compile.
+This makes Data::Class safe as a method for gradually modernizing and documenting the code of legacy applications. As it has no runtime impact, it is unlikely to throw any runtime errors if the script itself can compile.
 classes (much like regular objects) also allow for hash based accessing of attributes and can be used as drop-in replacement for instances where you would otherwise pass around hash references.
 classes allow centralizing the definition of the class including the more explicity use of default values. These aspects are what make the classes reminiscent of Typescript interfaces. 
 
 =head2 Moo/Moose compatibility
-Type::Hints are fully compatible with Moo/Moose/Mo/Mouse and similar object frameworks. For attributes, you can use public, private, and readonly and they work including defaults, lvalues, and access control.
+Data::Class are fully compatible with Moo/Moose/Mo/Mouse and similar object frameworks. For attributes, you can use public, private, and readonly and they work including defaults, lvalues, and access control.
 However, these attributes are not allowed in Moo/Moose constructors so you will need another method of assigning values (perhaps in the BUILD function)
 Let and def both work as well and work as expected. You can also use all of these function in ordinary packages as well if you prefer the built-in Perl OO system. 
 
