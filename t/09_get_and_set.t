@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests=>7;
+use Test::More tests=>8;
 use Data::Dumper;
 use Data::Class qw(has class private lazy get set def);
 use experimental 'signatures';
@@ -60,6 +60,18 @@ class SecretDoc {
         return $self->content;
     }
 }
+
+def foo 
+(
+    $bar,
+    $baz, 
+    $qux: { red: int,
+            green: int,
+            blue: int }
+)
+{
+    return "nothing";
+}
 my $doc = SecretDoc(name=>'secrets', content=>'Dont look at this');
 
 is($doc->name, 'secrets', 'Private public coexist');
@@ -71,3 +83,7 @@ eval { $doc->content = 'Redacted' };
 like($@, qr/is a private attribute/, 'Ensure private setters are private'); 
 
 is($doc->steal, 'redacted updated retrieved', 'Private get and set');
+
+# Hard test to manage, but important. Ensures keywords above have not messed with the line numbers
+eval { die("DEAD") };
+like($@, qr/line 88/, 'Ensure line numbers match'); 

@@ -62,21 +62,25 @@ object system, you'll need to deal with ->new() and ensuring the
 relevant args were passed.
 
 ### public
-public is a synonym for has
+When used for definining attributes, public is a synonym for has.
+When used as a modifier to sub or def, public does not do anything, but may clarify the usage of a method
 
 ``` typescript
 class Airport {
     public name: str;
+
+    public sub($self) { return 42 }
 }
 ```
 
 ### private
-private restricts read and write access class in which a variable
-was created
+private restricts access to the class in which a variable or method is defined
 
 ``` typescript
 class Airport {
     private name: str;
+
+    private sub($self) { return 42 }
 }
 ```
 
@@ -87,6 +91,8 @@ class and subclasses.
 ``` typescript
 class Airport {
     protected name: str;
+
+    private def($self) { return 42 }
 }
 ```
 
@@ -137,7 +143,7 @@ class Color {
 class Person {
     has name: str;
     has age: int;
-    has alive: bool = 1;
+    private alive: bool = 1;
 
     def _init($self, $args){
         die("Ages can't be negative") if $self->age < 0;
@@ -215,18 +221,18 @@ arguments passed to the constructor.
 ## Getters and Setters
 
 If you need data validation on the lvalue getters and setters, you may
-add a get_foo or set_foo, which will be called automatically on the get
+add a get foo() or set foo(), which will be called automatically on the get
 and set respectively
 
-```
+``` perl 
 class Account {
     has balance = 0;
-    sub get_balance($self) {
+    get balance($self) {
         # Log access to the account for security reasons.
         print "Accessing balance\n";
         return $self->balance;
     }
-    sub set_balance($self, $value) {
+    set balance($self, $value: int) {
         # More than just a type constraint, perhaps we want alert someone if overdraft attempted
         croak("Overdraft fee applied!") if ($value < 0);
         $self->balance = $value;
@@ -240,7 +246,19 @@ These accessors allow you to start developing with normal lvalue
 accessors and only add validation after the fact without requiring
 refactoring your code to use getters and setters.
 
-The equivalent style in python is
+
+The equivalent style in typescript is
+
+``` typescript
+get balance(): number {
+    return this._balance;
+}
+set balance(value: number) {
+    this._balance = value;
+}
+```
+
+and the equivalent in python is:
 
 ``` python
 @property
@@ -252,16 +270,6 @@ def balance(self, value):
     self._balance = value
 ```
 
-and the equivalent in typescript is:
-
-``` typescript
-get balance(): number {
-    return this._balance;
-}
-set balance(value: number) {
-    this._balance = value;
-}
-```
 
 Inheritance Single inheritance is supported. You can either subclass from
 Data::Class classes, or from normal packages. Because you can
@@ -269,7 +277,7 @@ inherit from packages that themselves may use multiple inheritance from
 Data::Class classes, you may effectively end up with multiple inheritance
 on classes. This feature does work, but is experimental.
 
-```
+``` typescript
 class Animal {
 }
 
@@ -286,7 +294,7 @@ hashref, coderef, scalarref, and inline object definitions
 The type hints are composable using the or operator | and using various
 hints as containers. For example:
 
-```
+``` typescript
 let $foo: arrayref[ int | object | arrayref[str]] | undef; 
 let $bar: {arg1 : str, arg2: int, myInts: arrayref[Math::BigInt | int] };
 ```
@@ -341,7 +349,7 @@ class InventoryItem {
 
 ### Runtime impact
 
-Data::Class does not validate data types or have any runtime impact on
+Type hints do not validate data types or have any runtime impact on
 your application. This is consistent with the Type annotation
 behaviours of both Python and Typescript.
 

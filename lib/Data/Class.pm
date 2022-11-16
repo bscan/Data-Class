@@ -168,13 +168,31 @@ sub build_def {
          };
     }
 
-
     if($$ref !~ s/^(\s*\w+\b\s*\()([^\)]*)(\))\s*(?:$HINTS_RG)?/'sub '.$1.parse_def_hints($2).$3.validate_hint($4)/e){
         croak("Unrecognized syntax for $type. Did you forget the signature?");
     };
+
+    if ($type eq 'protected' or $type eq 'private'){
+         if($$ref !~ s/^sub(\s*)(\w+)(\b\s*\()/$1 . get_protect_sub($type, $2) . $3/e){
+            croak("Malformed syntax for $type subroutine. Did you forget the signature?");
+         };
+    }
+
     my $new_count = $$ref =~ tr/\n//;
     my $missing = $line_count - $new_count;
     substr($$ref, 0, 0) = "\n" x $missing;
+}
+
+
+sub get_protect_sub {
+    my ($type, $name) = @_;
+    my $private;
+    if($type eq 'private'){
+        $private = " sub $name { my \$self=shift; Carp::croak('$name is a private method') if !(\$self->isa((caller(0))[0]) and ref(\$self) eq (split(/::([^:]+)\$/, (caller(0))[3]))[0] ); \$self->_${name}_(\@_) } sub _${name}_ ";
+    } elsif($type eq 'protected'){
+        $private = " sub $name { my \$self=shift;  Carp::croak('$name is a protected method') if !(\$self->isa((caller(0))[0])); \$self->_${name}_(\@_) } sub _${name}_ ";
+    }
+    return $private;
 }
 
 sub parse_def_hints {
@@ -267,7 +285,13 @@ sub build_has {
     my ($has_pkg, $type, $ref) = @_;
 
     if($$ref !~ s/^\s*(\w+)\s*(?:$HINTS_RG)?\s*(;|=)/replace_has_equals($1, $2, $3, $type)/e){
-        croak "Invalid syntax for has keyword";
+        croak "Invalid syntax for $type keyword" unless ( grep { $_ eq $type } ('private', 'public', 'protected'));
+    
+        if($$ref =~ s/^\s*(?:sub|def)\s+(?=\w+)//){
+            build_def($type, $ref);
+        } else {
+            croak "Invalid syntax for the $type keyword"
+        }
     }
 }
 
