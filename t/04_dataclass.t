@@ -34,14 +34,14 @@ class Foo {
     }
 }
 
-class Small {
+class Small{ # intentional no space after Small
     has name = 'myName';
     private secret = 'codeword'
 }
 
-my $smallObj = Small();
+my $smallObj = Small->new();
 
-my $foo = Foo(bar=>2, baz=>Data::Dumper->new([], []), thud=>'Overridden', privateInit=>3, roInit=>4);
+my $foo = Foo->new(bar=>2, baz=>Data::Dumper->new([], []), thud=>'Overridden', privateInit=>3, roInit=>4);
 
 is($foo->bar, 2, 'Simple assignment');
 

@@ -7,6 +7,10 @@ use Data::Class;
 class Account {
     has balance;
     
+    private sub noargs(){
+        return "2";
+    }
+
     private sub modify($self, $value: int) {
         $self->balance = $value;
     }
@@ -19,8 +23,7 @@ class Account {
         $self->modify($value);
     }
 
-    public def trickier 
-            (
+    public def trickier  (
                 $self: object, 
                 $value: { newval: int } ) : undef
     {
@@ -28,7 +31,7 @@ class Account {
     }
 }
 
-my $account = Account(balance=>100);
+my $account = Account->new(balance=>100);
 
 
 
@@ -47,4 +50,4 @@ is($account->balance, 30, 'Different syntax');
 
 # Hard test to manage, but important. Ensures keywords above have not messed with the line numbers
 eval { die("DEAD") };
-like($@, qr/line 49/, 'Ensure line numbers match'); 
+like($@, qr/line 52/, 'Ensure line numbers match'); 

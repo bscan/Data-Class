@@ -12,8 +12,8 @@ Screenshot includes the syntax highlighting found in the Perl Navigator
 ## DESCRIPTION
 
 Data::Class provides a variety of keywords that offer classes similar to dataclasses in Python, and type hints
-similar to those offered in Python and Typescript. Syntax highlighting
-for these keywords is available in the Perl Navigator.
+similar to those offered in Python and Typescript. These keywords are not limited to usage inside of a class. Syntax highlighting
+for these keywords is available in the Perl Navigator. 
 
 # KEYWORDS
 
@@ -54,7 +54,7 @@ my $airport = Airport->new(name=>'Nantucket');
 print $airport->name . " is a regional airport" if($airport->regional);
 ```
 
-Has will define new attributes for use in classes. It accepts type
+Has will define new attributes for use in classes and packages. It accepts type
 hints and specifies default arguments. An accessor and an l-value
 setter will be generated for each attribute. "has" is best with
 classes, but works with normal packages as well. If you build your own
@@ -150,51 +150,22 @@ class Person {
     }
 }
 
-my $Bob = Person(name=>"Robert", age=>55);
+my $Bob = Person->new(name=>"Robert", age=>55);
 say "Happy Birthday " . $Bob->name;
 $Bob->age = 56;
 print($Bob);
 ```
 
 classes are styled after Python dataclasses and somewhat resemble
-Typescript interfaces. A class will generate a constructor of the same
-name and requires all arguments that do not have defaults. Attributes
+Typescript interfaces. All arguments that do not have defaults are required in new. Attributes
 can be accessed as methods, and can be modified using l-value methods.
 
 class also overload the string operation and offer a pretty-printed
-display of the object contents
+display of the object's contents
 
-Any parameter without a default specified is a required parameter. It
+Any parameter in a class without a default specified is a required parameter. It
 needs to either be passed to the constructor or set inside the
-constructor.
-
-## Lexical Constructor
-Contrary to normal packages, class constructors are
-local only to the package in which they are defined. This is an important
-feature of classes, which often may be small data-oriented classes where
-a full package including distinct file may not make sense.
-
-For example, imagine I am writing a Perl::Critic policy named
-Perl::Critic::Policy::ValuesAndExpressions::ProhibitLargeComplexNumbers
-that prohibits some specific types of complex numbers. As part of this,
-perhaps I decide to build a class consisting of two attributes: real
-and imaginary. This appears to be a simple class, but unfortunately all
-packages in Perl are global, so I should not use the name
-"ComplexPoint". Convention and practicality dictate that I name my
-class
-Perl::Critic::Policy::ValuesAndExpressions::ProhibitLargeComplexNumbers::ComplexPoint
-and create a new file for it named
-Perl/Critic/Policy/ValuesAndExpressions/ProhibitLargeComplexNumbers/ComplexPoint.pm
-that defines my two new fields and a constructor. This becomes quite a
-pain to type and results in many authors simply not using classes for
-smaller data-oriented object.
-
-Classes are intended to make small object construction simple while not
-interfering with other modules across your codebase or across CPAN.
-Defining class Baz within in package Foo::Bar will auto-generate a new
-package name Foo::Bar::_Baz and build a subroutine constructor in the
-same package. As a subroutine, the constructor may be exported to any
-module needing this class.
+constructor. This does not apply to `has` statements in normal packages
 
 
 ## _init
@@ -213,10 +184,8 @@ class Person {
 ```
 
 The optional _init method is called immediately after the class is
-built and allows an opporutunity for data validation and object
-initialization. _init is passed $args, but this is rarely necessary to
-consult unless you need to differentiate between default arguments and
-arguments passed to the constructor.
+built and allows an opportunity for data validation and object
+initialization. _init is passed $args although this is primarily only used for initvars.
 
 ## Getters and Setters
 
@@ -250,28 +219,36 @@ refactoring your code to use getters and setters.
 The equivalent style in typescript is
 
 ``` typescript
-get balance(): number {
-    return this._balance;
-}
-set balance(value: number) {
-    this._balance = value;
+class Account {
+    private _balance: number = 0;
+    
+    get balance(): number {
+        return this._balance;
+    }
+    set balance(value: number) {
+        this._balance = value;
+    }
 }
 ```
 
 and the equivalent in python is:
 
 ``` python
-@property
-def balance(self):
-    return self._balance
+@dataclass
+class Account:
+    _balance: int = 0
+    @property
+    def balance(self):
+        return self._balance
 
-@balance.setter
-def balance(self, value):
-    self._balance = value
+    @balance.setter
+    def balance(self, value):
+        self._balance = value
 ```
 
 
-Inheritance Single inheritance is supported. You can either subclass from
+## Inheritance
+Single inheritance is supported. You can either subclass from
 Data::Class classes, or from normal packages. Because you can
 inherit from packages that themselves may use multiple inheritance from
 Data::Class classes, you may effectively end up with multiple inheritance

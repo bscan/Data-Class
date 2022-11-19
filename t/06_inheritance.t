@@ -1,11 +1,12 @@
 use strict;
 use warnings;
-use Test::More tests=>16;
+use Test::More tests=>18;
 use Data::Dumper;
 use Data::Class qw(has class);
-use experimental 'signatures';
 
 package PackageParent {
+    has packBaseAttr = 10;
+    has packBaseAttrUnint; # This variable is not required in child classes
     sub return42 {
         my $self = shift;
         return 42;
@@ -60,16 +61,17 @@ class Child2 extends ClassParent {
 }
 
 {
-    my $child = Child1(bar=>10);
+    my $child = Child1->new(bar=>10);
     is($child->bar, 10, 'Child1');
     $child->bar++;
     is($child->bar, 11, 'Child1++');
     is($child->return42, 42, 'Inherit sub from plain package');
-
+    is($child->packBaseAttr, 10, 'Inherit has from plain package');
+    is($child->packBaseAttrUnint, undef, 'Non-required attrs from plain parents')
 }
 
 {
-    my $child = Child2(foo=>15, baseattr=>14);
+    my $child = Child2->new(foo=>15, baseattr=>14);
     is($child->foo, 15, 'Child2');
     $child->foo++;
     is($child->foo, 16, 'Child2++');
@@ -81,7 +83,7 @@ class Child2 extends ClassParent {
 
 
 {
-    my $child = Child2(foo=>15, baseattr=>14, baseattrDefault=>27, gpAttr=>8);
+    my $child = Child2->new(foo=>15, baseattr=>14, baseattrDefault=>27, gpAttr=>8);
     is($child->baseattrDefault, 27, 'Override defaults from base');
     $child->baseattrDefault++;
     is($child->baseattrDefault, 28, 'Getters and setters from base');

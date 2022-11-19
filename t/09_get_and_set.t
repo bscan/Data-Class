@@ -17,12 +17,12 @@ class Foo {
     } 
 }
 
-my $foo = Foo(bar=>2);
+my $foo = Foo->new(bar=>2);
 
 eval { $foo->bar = 15 };
 like($@, qr/Can't set new value to more than 2/, 'Call setter'); 
 
-eval { my $foo2 = Foo(bar=>20) };
+eval { my $foo2 = Foo->new(bar=>20) };
 like($@, qr/Can't set new value to more than 2/, 'Call setter during constructor'); 
 
 class Account {
@@ -39,7 +39,7 @@ class Account {
         $self->balance = $value - 5; # Charge two cents to update a balance
     }
 }
-my $account = Account(balance=>100);
+my $account = Account->new(balance=>100);
 $account->balance -= 10; # Calls a get and a set
 is($account->balance, 78, 'Getter and a setter');
 
@@ -72,7 +72,7 @@ def foo
 {
     return "nothing";
 }
-my $doc = SecretDoc(name=>'secrets', content=>'Dont look at this');
+my $doc = SecretDoc->new(name=>'secrets', content=>'Dont look at this');
 
 is($doc->name, 'secrets', 'Private public coexist');
 

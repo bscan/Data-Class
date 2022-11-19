@@ -21,7 +21,7 @@ class Color {
 }
 
 {
-    my $teal = Color(color=>'teal');
+    my $teal = Color->new(color=>'teal');
     is($teal->color, 'teal', 'Normal access');
     eval { my $red = $teal->red;  };
     like($@, qr(Can't locate object method "red"), 'Init var does not exist in class');
@@ -29,7 +29,7 @@ class Color {
 }
 
 {
-    my $orange = Color(red=>255, green=>165, blue=>0);
+    my $orange = Color->new(red=>255, green=>165, blue=>0);
     is($orange->color, 'RGB(255, 165, 0)', 'Normal access');
     eval { my $red = $orange->red;  };
     like($@, qr(Can't locate object method "red"), 'Init var does not exist in class');

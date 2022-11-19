@@ -15,7 +15,7 @@ class Foo {
     }
 }
 
-my $foo = Foo(bar=>2);
+my $foo = Foo->new(bar=>2);
 
 is($foo->frob(5), 11, 'Simple assignment');
 

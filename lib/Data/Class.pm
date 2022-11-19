@@ -43,8 +43,7 @@ my $keywords = {
 };
 
 # This will intentionally reference by partial name, so multiple Person class can collide
-my $class_shortname = {};
-my $class_longname = {};
+my $dataclasses = {};
 
 my $defaults = {};
 my $lazy = {};
@@ -225,7 +224,6 @@ sub validate_hint {
         next if !length($hint);
         next if pack_exists($hint);
         next if defined($containers->{$hint});
-        next if $class_shortname->{$hint};
         croak("$hint is not a valid type hint. Do you need to import $hint?");
     }
     return "";
@@ -357,90 +355,27 @@ sub build_dataclass {
     my ($caller_pkg, $type, $ref) = @_;
 
     my ($name, $parent);
-    my $pkg_name = "${caller_pkg}::";
-    my $func_name = $pkg_name;
-    my $short_name;
-    if($$ref =~ s/^\s*(\w+)(?:\s+extends\s+((?:\w|::)+))?(?:\s|\{|\z)/package ${pkg_name}_$1/){
-        $short_name = $1;
-        $pkg_name .= "_$1";    
-        $func_name .= $1;
-        $class_shortname->{$short_name} = 1;    
+    my $pkg_name;
+    if($$ref =~ s/^\s*(\w+)(?:\s+extends\s+((?:\w|::)+))?(?=\s|\{|\z|;)/package $1/){
+        $pkg_name = $1;    
         $parent = $2;
-
     } else {
         croak "Invalid class name"
     }
-
     no strict 'refs'; ## no critic;
 
-    if (scalar keys %{"${pkg_name}::"}){
+    if (pack_exists($pkg_name)){
         croak("class $pkg_name already defined");
     }
 
-    my $prefix = "class ";
-
-    *{"$func_name"} = sub {
-        my %args = (@_);
-
-        my $if = bless {}, $pkg_name;
-        
-        resolve_ancestors($pkg_name);
-        my %ext_to_int = %{$Data::Class::names->{$pkg_name}};
-        my %int_to_ext = reverse %{$Data::Class::names->{$pkg_name}};
-        
-        foreach my $int_key (sort keys %{"${pkg_name}::_PARAMS"}){
-            if ( !defined($args{$int_to_ext{$int_key}})){
-                if(exists($Data::Class::defaults->{$pkg_name}->{$int_key})){
-                    $if->{$int_key} = $Data::Class::defaults->{$pkg_name}->{$int_key};
-                } 
-            }
-        }
-
-
-        foreach my $ext_key (sort keys %args){
-            croak "$ext_key is not a valid argument for class $short_name\n" if !defined(${"${pkg_name}::_PARAMS"}{$ext_to_int{$ext_key}});
-            if($if->can("__set__$ext_key")){
-                my $method = "__set__$ext_key";
-                $if->$method($args{$ext_key});
-            } else {
-                $if->{$ext_to_int{$ext_key}} = $args{$ext_key};
-            }
-        }
-
-        $if->_init(\%args);
-
-        foreach my $int_key (sort keys %{"${pkg_name}::_PARAMS"}){
-            if ( !exists($if->{$int_key})){
-                 my $disp = $int_to_ext{$int_key};
-                 croak "$disp is required parameter for class $short_name. Please pass a value, or set it in the constructor\n"
-            }
-
-            # Force evaluation of default code blocks (unless lazy or replaced in the constructor)
-            $if->{$int_key} = &{$if->{$int_key}}($if) if ref($if->{$int_key}) eq 'CODE' and !defined($Data::Class::lazy->{$pkg_name}->{$int_key});
-        }
-        return $if;
-    };
-
-
-    *{"$func_name"} = Sub::Util::set_subname($prefix . $pkg_name, *{"$func_name"});
 
     if( $parent ) {
-        # The parent constructor may have been imported into this module. We need to find the actual name of the package
-        # Should this be a "can" situation?
-        my $sFullPath = "${caller_pkg}::$parent";
-        my $parentPackage;
-
-        if ( exists &{$sFullPath}) {
-            $parentPackage = Sub::Util::subname(\&$sFullPath);
-            croak(" $sFullPath is a regular subroutine, not a Data::Class::class") if $parentPackage !~ /^$prefix/;
-            $parentPackage =~ s/^$prefix//;
-            $class_longname->{$parentPackage} = 1;
-        } elsif (pack_exists($parent)) {
-            $parentPackage = $parent
+        if (pack_exists($parent)) {
+            push @{"${pkg_name}::ISA"}, $parent;
+            $dataclasses->{$parent} = 1;
         } else {
             croak("$parent not found. Do you need to import or load it?")
         }
-        push @{"${pkg_name}::ISA"}, $parentPackage;
     }
 
     unshift @{ "${pkg_name}::ISA" }, 'Data::Class::Dataclass';
@@ -461,7 +396,7 @@ sub resolve_ancestors {
     }
 
     foreach my $ancestor (@pks_to_check){
-        next unless ( $class_longname->{$ancestor} );
+        next unless ( $dataclasses->{$ancestor} );
         foreach my $parentKey (keys %{"${ancestor}::_PARAMS"}){
             if(!exists ${"${pkg_name}::_PARAMS"}{$parentKey} ){
                 #Check key doesn't exist since we want to be able to override default
@@ -523,6 +458,49 @@ sub _init {
     # Do nothing, but allow being overridden;
 }
 
+sub new {
+    no strict 'refs';
+    my $klass = shift;
+    my %args = (@_);
+
+    my $if = bless {}, $klass;
+    
+    Data::Class::resolve_ancestors($klass);
+    my %ext_to_int = %{$Data::Class::names->{$klass}};
+    my %int_to_ext = reverse %{$Data::Class::names->{$klass}};
+    
+    foreach my $int_key (sort keys %{"${klass}::_PARAMS"}){
+        if ( !defined($args{$int_to_ext{$int_key}})){
+            if(exists($Data::Class::defaults->{$klass}->{$int_key})){
+                $if->{$int_key} = $Data::Class::defaults->{$klass}->{$int_key};
+            } 
+        }
+    }
+
+    foreach my $ext_key (sort keys %args){
+        Carp::croak("$ext_key is not a valid argument for class $klass\n") if !defined(${"${klass}::_PARAMS"}{$ext_to_int{$ext_key}});
+        if($if->can("__set__$ext_key")){
+            my $method = "__set__$ext_key";
+            $if->$method($args{$ext_key});
+        } else {
+            $if->{$ext_to_int{$ext_key}} = $args{$ext_key};
+        }
+    }
+
+    $if->_init(\%args);
+
+    foreach my $int_key (sort keys %{"${klass}::_PARAMS"}){
+        if ( !exists($if->{$int_key})){
+                my $disp = $int_to_ext{$int_key};
+                Carp::croak("$disp is required parameter for class $klass. Please pass a value, or set it in the constructor\n");
+        }
+
+        # Force evaluation of default code blocks (unless lazy or replaced in the constructor)
+        $if->{$int_key} = &{$if->{$int_key}}($if) if ref($if->{$int_key}) eq 'CODE' and !defined($Data::Class::lazy->{$klass}->{$int_key});
+    }
+    
+    return $if;
+}
 1;
 
 =head1 NAME
