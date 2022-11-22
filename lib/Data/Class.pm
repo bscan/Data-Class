@@ -337,8 +337,8 @@ sub replace_has_equals {
                 };
     ";
     my $pkg_code = " { no strict 'refs';
-                    die('$oParam already defined as an attribute') if defined(\$Data::Class::names->{''.__PACKAGE__}->{'$oParam'});
-                    \$Data::Class::names->{''.__PACKAGE__}->{'$oParam'} = '$param';
+                    die('$oParam already defined as an attribute') if defined(\$Data::Class::names->{''.__PACKAGE__}->{'$param'});
+                    \$Data::Class::names->{''.__PACKAGE__}->{'$param'} = '$oParam';
                     \${__PACKAGE__ . '::_PARAMS'}{'$param'}='$hint';
                     }" ;
 
@@ -431,7 +431,7 @@ sub __to_string {
     no warnings qw(uninitialized);
 
     my @elems;
-    my %int_to_ext = reverse %{$Data::Class::names->{ref($self)}};
+    my %int_to_ext = %{$Data::Class::names->{ref($self)}};
     foreach my $key (sort keys %$self) {
         my $display;
         my $val = $self->{$key};
@@ -466,8 +466,8 @@ sub new {
     my $if = bless {}, $klass;
     
     Data::Class::resolve_ancestors($klass);
-    my %ext_to_int = %{$Data::Class::names->{$klass}};
-    my %int_to_ext = reverse %{$Data::Class::names->{$klass}};
+    my %ext_to_int = reverse %{$Data::Class::names->{$klass}};
+    my %int_to_ext = %{$Data::Class::names->{$klass}};
     
     foreach my $int_key (sort keys %{"${klass}::_PARAMS"}){
         if ( !defined($args{$int_to_ext{$int_key}})){

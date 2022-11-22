@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Test::More tests=>18;
 use Data::Dumper;
-use Data::Class qw(has class);
+use Data::Class qw(has class private);
 
 package PackageParent {
     has packBaseAttr = 10;
@@ -21,6 +21,7 @@ class GrandParent {
     has grandparentAttrOverrideInChild = 4;
     has doubleOveride= 1;
     has overideWithUndef = 5;
+    private priv_attr;
     sub return4 {
         my $self = shift;
         return 4;
@@ -71,7 +72,7 @@ class Child2 extends ClassParent {
 }
 
 {
-    my $child = Child2->new(foo=>15, baseattr=>14);
+    my $child = Child2->new(foo=>15, baseattr=>14, priv_attr=>10);
     is($child->foo, 15, 'Child2');
     $child->foo++;
     is($child->foo, 16, 'Child2++');
